@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ChatGPT</title>
+    <meta name="description" content="A front-end replica of ChatGPT, rebuilt from the rendered UI for study." />
+    <link rel="icon" href="assets/mark.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="css/tokens.css" />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/home.css" />
+    <link rel="stylesheet" href="css/app.css" />
+  </head>
+  <body>
+    <div class="app">
+      <div class="scrim" id="scrim" aria-hidden="true"></div>
+
+      <aside class="sidebar" id="sidebar" aria-label="ChatGPT navigation">
+        <div class="sb-top">
+          <button class="brand" id="brand-menu" type="button">
+            <span>ChatGPT</span>
+            <span class="chev" data-icon="chevron-down"></span>
+          </button>
+          <a class="new-chat" href="#/" aria-label="New chat" data-icon="new-chat"></a>
+        </div>
+
+        <nav class="sb-nav" id="app-nav" aria-label="Primary"></nav>
+
+        <div class="chats">
+          <div class="chats-head">
+            <span data-copy="app.chatsLabel"></span>
+          </div>
+          <div class="chat-list" id="chat-list"></div>
+        </div>
+
+        <div class="account">
+          <button class="account-btn" id="account-btn" type="button" aria-haspopup="true" aria-expanded="false">
+            <span class="avatar" id="account-avatar">S</span>
+            <span class="account-text">
+              <span class="account-name" id="account-name"></span>
+              <span class="account-plan" data-copy="app.settings.general.planValue"></span>
+            </span>
+            <span data-icon="more"></span>
+          </button>
+          <div class="popover" id="account-popover" hidden>
+            <div class="pop-head" id="account-email"></div>
+            <a href="#/settings" data-icon="settings"><span data-copy="app.accountSettings"></span></a>
+            <hr />
+            <button type="button" id="logout" data-icon="close"><span data-copy="app.logout"></span></button>
+          </div>
+        </div>
+      </aside>
+
+      <div class="app-main">
+        <header class="app-header">
+          <button class="icon-btn mobile-only" id="open-sidebar" aria-label="Open sidebar" data-icon="menu"></button>
+          <div class="model">
+            <button class="model-btn" id="model-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span id="model-label">ChatGPT</span>
+              <span data-icon="chevron-down"></span>
+            </button>
+            <div class="popover" id="model-menu" role="listbox" aria-label="Model" hidden></div>
+          </div>
+        </header>
+
+        <div class="view" id="view"></div>
+      </div>
+    </div>
+
+    <script src="js/content.js"></script>
+    <script src="js/copy.js"></script>
+    <script src="js/icons.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

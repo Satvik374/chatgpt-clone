@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ChatGPT</title>
+    <meta name="description" content="A front-end replica of ChatGPT, rebuilt from the rendered UI for study." />
+    <link rel="icon" href="assets/mark.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="css/tokens.css" />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/home.css" />
+  </head>
+  <body>
+    <div class="home">
+      <div class="scrim" id="scrim"></div>
+
+      <aside class="sidebar" id="sidebar" aria-label="ChatGPT navigation">
+        <div class="sb-top">
+          <a class="brand" href="index.html" data-mark>
+            <span class="brand-text">ChatGPT</span>
+            <span data-icon="chevron-down"></span>
+          </a>
+          <button class="icon-btn" id="close-sidebar" aria-label="Close sidebar" data-icon="panel"></button>
+        </div>
+
+        <nav class="sb-nav" id="home-nav" aria-label="Primary"></nav>
+
+        <div class="sb-promo">
+          <h2 data-copy="home.promo.title"></h2>
+          <p data-copy="home.promo.body"></p>
+          <a class="btn btn-soft btn-block" href="auth.html" data-copy="home.promo.cta"></a>
+        </div>
+      </aside>
+
+      <div class="home-main">
+        <header class="topbar">
+          <button class="icon-btn mobile-only" id="open-sidebar" aria-label="Open sidebar" data-icon="menu"></button>
+          <span class="mobile-only">ChatGPT</span>
+          <div class="topbar-actions">
+            <a class="btn btn-dark" href="auth.html">Log in</a>
+            <a class="btn btn-outline" href="auth.html?mode=signup">Sign up for free</a>
+          </div>
+        </header>
+
+        <main class="hero">
+          <div class="hero-inner">
+            <h1>
+              <span class="desktop-only" data-copy="home.heading"></span>
+              <span class="mobile-only-inline" data-copy="home.headingMobile"></span>
+            </h1>
+
+            <form class="composer" id="composer" autocomplete="off">
+              <button class="composer-btn" type="button" aria-label="Add files and more" data-icon="plus"></button>
+              <label class="sr-only" for="prompt">Ask ChatGPT</label>
+              <textarea
+                id="prompt"
+                name="prompt"
+                rows="1"
+                data-copy-placeholder="home.placeholder"
+                placeholder="Ask ChatGPT"
+              ></textarea>
+              <button class="composer-btn" type="button" aria-label="Dictate" data-icon="mic"></button>
+              <a class="composer-voice" href="auth.html" aria-label="Use voice mode" data-icon="wave"></a>
+            </form>
+
+            <div class="suggestions" id="suggestions"></div>
+          </div>
+        </main>
+
+        <footer class="home-footer">
+          <p>
+            <span data-copy="home.footer.before"></span><a data-copy="home.footer.terms" data-copy-href="links.terms"></a><span
+              data-copy="home.footer.middle"
+            ></span><a data-copy="home.footer.privacy" data-copy-href="links.privacy"></a><span
+              data-copy="home.footer.after"
+            ></span><a data-copy="home.footer.learn" data-copy-href="links.help"></a>
+          </p>
+        </footer>
+      </div>
+    </div>
+
+    <script src="js/content.js"></script>
+    <script src="js/copy.js"></script>
+    <script src="js/icons.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/home.js"></script>
+  </body>
+</html>

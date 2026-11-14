@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Log in or sign up - ChatGPT</title>
+    <meta name="description" content="Local sign-in for the ChatGPT front-end replica." />
+    <link rel="icon" href="assets/mark.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="css/tokens.css" />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/auth.css" />
+  </head>
+  <body>
+    <div class="auth">
+      <header class="auth-header">
+        <a class="auth-wordmark" href="index.html" data-mark><span data-copy="auth.wordmark"></span></a>
+      </header>
+
+      <main class="auth-main">
+        <div class="auth-col">
+          <div id="account-banner"></div>
+          <h1 id="auth-title">Log in or sign up</h1>
+
+          <div id="auth-social">
+            <div class="auth-stack" id="social-stack"></div>
+            <div class="auth-divider" id="auth-divider"><span data-copy="auth.divider"></span></div>
+          </div>
+
+          <form class="auth-form" id="email-form" novalidate>
+            <div class="field">
+              <label class="sr-only" for="email">Email address</label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                inputmode="email"
+                autocomplete="email"
+                spellcheck="false"
+                data-copy-placeholder="auth.emailPlaceholder"
+                placeholder="Email address"
+                required
+              />
+              <p class="field-error" id="email-error" hidden></p>
+            </div>
+            <button class="auth-submit" type="submit" data-copy="auth.continue"></button>
+          </form>
+
+          <form class="auth-form" id="password-form" hidden novalidate>
+            <div class="field">
+              <label class="sr-only" for="password">Password</label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                data-copy-placeholder="auth.passwordPlaceholder"
+                placeholder="Password"
+                required
+              />
+              <p class="field-hint" id="password-hint"></p>
+              <p class="field-error" id="password-error" hidden></p>
+            </div>
+            <button class="auth-submit" type="submit" data-copy="auth.passwordCta"></button>
+          </form>
+
+          <p class="auth-alt" id="auth-alt"></p>
+          <button class="auth-back" id="auth-back" type="button" hidden><span data-copy="auth.back"></span></button>
+        </div>
+      </main>
+
+      <footer class="auth-footer">
+        <span data-mark></span>
+        <div class="auth-legal">
+          <a data-copy="auth.legal.terms" data-copy-href="links.terms" target="_blank" rel="noopener noreferrer"></a>
+          <span class="sep" aria-hidden="true"></span>
+          <a data-copy="auth.legal.privacy" data-copy-href="links.privacy" target="_blank" rel="noopener noreferrer"></a>
+        </div>
+        <div class="auth-cookie">
+          <button type="button" data-copy="auth.legal.cookies"></button>
+        </div>
+      </footer>
+    </div>
+
+    <script src="js/content.js"></script>
+    <script src="js/copy.js"></script>
+    <script src="js/icons.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/auth-page.js"></script>
+  </body>
+</html>
