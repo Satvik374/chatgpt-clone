@@ -5,3 +5,4 @@ clones/*/reference/
 .DS_Store
 app.log
 app.pid
+dist/

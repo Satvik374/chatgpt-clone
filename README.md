@@ -46,6 +46,21 @@ and `.env` is git-ignored.
   returning a same-origin URL so generated images survive reloads.
 - `GET /api/config` reports the configured model and provider without exposing the key.
 
+## Publishing (Freebuff Sites)
+
+The hosted build runs the same UI from `dist/` plus [worker.js](worker.js), a Workers port of the API
+routes (streaming chat, image generation stored in R2, `GET /api/config`).
+
+```bash
+rm -rf dist && mkdir dist
+cp index.html auth.html app.html dist/
+cp -r css js assets dist/
+```
+
+Deploy [deploy.json](deploy.json), then add `OPENAI_API_KEY` (and optionally `OPENAI_BASE_URL`,
+`OPENAI_MODEL`, `OPENAI_IMAGE_MODEL`) under Sites → Secrets. The local `node server.mjs` flow above is
+unchanged.
+
 ## Pages and behaviour
 
 | Route | Surface |
