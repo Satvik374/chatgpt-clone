@@ -1,4 +1,10 @@
 (function () {
+  // A signed-in visitor belongs in the app shell, matching the reference redirect.
+  if (window.Session && window.Session.get()) {
+    window.location.replace("app.html");
+    return;
+  }
+
   const CONTENT = window.CONTENT;
   const nav = document.getElementById("home-nav");
   const suggestions = document.getElementById("suggestions");

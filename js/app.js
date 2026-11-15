@@ -1,6 +1,6 @@
-/* Chat UI, routing, local conversation store and streaming client for the replica. */
+/* Signed-in ChatGPT replica: navigation, page renderers, local conversation store and streaming client. */
 (function () {
-  const C = window.CONTENT.app;
+  const A = window.CONTENT.app;
   const Session = window.Session;
   const session = Session.get();
 
@@ -12,17 +12,21 @@
   const CHATS_KEY = "cg.chats";
   const state = {
     convId: null,
-    model: C.models[0],
-    settingsTab: 0,
+    settingsSection: "Account",
     streaming: false,
     controller: null,
     draft: null,
+    temp: false,
   };
 
+  const app = document.getElementById("app");
   const view = document.getElementById("view");
   const chatList = document.getElementById("chat-list");
   const sidebar = document.getElementById("sidebar");
   const scrim = document.getElementById("scrim");
+  const searchModal = document.getElementById("search-modal");
+  const searchInput = document.getElementById("search-input");
+  const searchResults = document.getElementById("search-results");
 
   /* ------------------------------------------------------------------ store */
   const Store = {
@@ -46,7 +50,7 @@
     },
     create(title) {
       const now = Date.now();
-      const chat = { id: uid(), title: title || C.empty.heading, messages: [], createdAt: now, updatedAt: now };
+      const chat = { id: uid(), title: title || "New chat", messages: [], createdAt: now, updatedAt: now };
       const list = this.all();
       list.unshift(chat);
       this.write(list);
@@ -83,15 +87,15 @@
   function seed() {
     if (localStorage.getItem(CHATS_KEY) !== null) return;
     const now = Date.now();
-    Store.write([
-      {
+    Store.write(
+      A.seed.titles.map((title, index) => ({
         id: uid(),
-        title: C.seed.title,
-        messages: [{ role: "assistant", content: C.seed.message, at: now }],
-        createdAt: now,
-        updatedAt: now,
-      },
-    ]);
+        title,
+        messages: [{ role: "assistant", content: A.seed.message, at: now - index * 60000 }],
+        createdAt: now - index * 60000,
+        updatedAt: now - index * 60000,
+      }))
+    );
   }
 
   seed();
@@ -191,7 +195,7 @@
 
   function titleFrom(text) {
     const cleaned = text.replace(/\s+/g, " ").trim();
-    return cleaned.length > 42 ? `${cleaned.slice(0, 42)}…` : cleaned || C.empty.heading;
+    return cleaned.length > 42 ? `${cleaned.slice(0, 42)}…` : cleaned || "New chat";
   }
 
   function autosize(textarea) {
@@ -203,49 +207,76 @@
     return '<span class="typing" aria-label="Generating"><i></i><i></i><i></i></span>';
   }
 
+  function tile(item, size) {
+    return `<span class="app-tile ${size || ""} tone-${esc(item.tone || "plain")}"><span>${esc(item.mark || item.name.charAt(0))}</span></span>`;
+  }
+
+  function slug(label) {
+    return String(label).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  }
+
   /* ---------------------------------------------------------------- chrome */
-  C.nav.forEach((item) => {
+  const nav = document.getElementById("app-nav");
+  A.nav.forEach((item) => {
+    const wrap = document.createElement("div");
+    wrap.className = "nav-wrap";
     const link = document.createElement("a");
     link.className = "nav-item";
     link.href = item.href;
     link.dataset.icon = item.icon;
     link.append(item.label);
-    document.getElementById("app-nav").append(link);
-  });
-
-  const modelMenu = document.getElementById("model-menu");
-  C.models.forEach((name) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "model-option";
-    button.setAttribute("role", "option");
-    button.setAttribute("aria-checked", String(name === state.model));
-    button.innerHTML = `<span>${esc(name)}</span><span class="check" data-icon="check"></span>`;
-    button.addEventListener("click", () => {
-      state.model = name;
-      document.getElementById("model-label").textContent = name;
-      modelMenu.querySelectorAll(".model-option").forEach((option) => {
-        option.setAttribute("aria-checked", String(option === button));
+    if (item.explore) {
+      link.dataset.explore = "1";
+      const chev = document.createElement("span");
+      chev.className = "nav-chev";
+      chev.dataset.icon = "chevron-right";
+      link.append(chev);
+      const menu = document.createElement("div");
+      menu.className = "explore-menu";
+      menu.hidden = true;
+      [
+        { label: "Finances", href: "#/gpts/finances" },
+        { label: "Maps", href: "#/gpts/maps" },
+        { label: "Images", href: "#/gpts/images" },
+        { label: "GPTs", href: "#/gpts" },
+        { label: "Canva", href: "#/gpts/canva" },
+      ].forEach((entry) => {
+        const a = document.createElement("a");
+        a.href = entry.href;
+        a.textContent = entry.label;
+        menu.append(a);
       });
-      closePopovers();
-    });
-    modelMenu.append(button);
+      wrap.append(link, menu);
+    } else {
+      wrap.append(link);
+    }
+    nav.append(wrap);
   });
 
-  document.getElementById("account-avatar").textContent = session.initials;
-  document.getElementById("account-name").textContent = session.email;
-  document.getElementById("account-email").textContent = session.email;
-  document.getElementById("model-label").textContent = state.model;
+  const exploreMenu = nav.querySelector(".explore-menu");
+  nav.addEventListener("click", (event) => {
+    const explore = event.target.closest("[data-explore]");
+    if (explore && !event.metaKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      const opening = exploreMenu.hidden;
+      closePopovers();
+      exploreMenu.hidden = !opening;
+      if (opening) {
+        exploreMenu.style.top = `${explore.offsetTop + explore.offsetHeight + 2}px`;
+      }
+      return;
+    }
+    closePopovers();
+  });
 
   const accountBtn = document.getElementById("account-btn");
   const accountPopover = document.getElementById("account-popover");
-  const modelBtn = document.getElementById("model-btn");
 
   function closePopovers() {
     accountPopover.hidden = true;
-    modelMenu.hidden = true;
     accountBtn.setAttribute("aria-expanded", "false");
-    modelBtn.setAttribute("aria-expanded", "false");
+    if (exploreMenu) exploreMenu.hidden = true;
   }
 
   accountBtn.addEventListener("click", (event) => {
@@ -257,28 +288,35 @@
       accountBtn.setAttribute("aria-expanded", "true");
     }
   });
-  modelBtn.addEventListener("click", (event) => {
-    event.stopPropagation();
-    const open = modelMenu.hidden;
+  document.addEventListener("click", (event) => {
+    if (event.target.closest(".explore-menu")) return;
     closePopovers();
-    if (open) {
-      modelMenu.hidden = false;
-      modelBtn.setAttribute("aria-expanded", "true");
-    }
   });
-  document.addEventListener("click", closePopovers);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       closePopovers();
+      closeSearch();
       closeSidebar();
+    }
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      openSearch();
     }
   });
 
-  accountPopover.querySelector('a[href="#/settings"]').addEventListener("click", closePopovers);
+  document.getElementById("brand-menu").addEventListener("click", (event) => {
+    event.stopPropagation();
+    accountBtn.click();
+  });
   document.getElementById("logout").addEventListener("click", () => {
     Session.clear();
     window.location.href = "index.html";
   });
+
+  document.getElementById("account-avatar").textContent = A.profile.initials;
+  document.getElementById("account-name").textContent = A.profile.name;
+  document.getElementById("account-plan").textContent = A.profile.plan;
+  document.getElementById("account-email").textContent = session.email;
 
   function openSidebar() {
     sidebar.classList.add("is-open");
@@ -292,10 +330,15 @@
   }
   document.getElementById("open-sidebar").addEventListener("click", openSidebar);
   scrim.addEventListener("click", closeSidebar);
-  document.getElementById("brand-menu").addEventListener("click", () => {
-    window.location.hash = "#/settings";
+  document.getElementById("sidebar-reopen").addEventListener("click", () => {
+    app.classList.remove("sidebar-collapsed");
+  });
+  document.getElementById("sb-collapse").addEventListener("click", () => {
+    if (window.innerWidth <= 900) closeSidebar();
+    else app.classList.add("sidebar-collapsed");
   });
 
+  /* -------------------------------------------------------------- chat list */
   function renderChatList() {
     chatList.innerHTML = "";
     const chats = Store.all().sort((a, b) => b.updatedAt - a.updatedAt);
@@ -319,7 +362,7 @@
       del.className = "chat-del";
       del.dataset.del = chat.id;
       del.dataset.icon = "trash";
-      del.setAttribute("aria-label", C.deleteChat);
+      del.setAttribute("aria-label", A.deleteChat);
       row.append(link, del);
       chatList.append(row);
     });
@@ -342,25 +385,80 @@
   function highlightNav(hash) {
     document.querySelectorAll("#app-nav .nav-item").forEach((link) => {
       const href = link.getAttribute("href");
-      const active = href === hash || (href !== "#/" && hash.startsWith(href.replace(/^#/, "")));
+      let active = href === hash;
+      if (href === "#/gpts" && hash.startsWith("#/gpts")) active = true;
+      if (href !== "#/" && hash.startsWith(href)) active = true;
       link.classList.toggle("is-active", Boolean(active));
     });
+    const newRow = document.getElementById("new-chat-row");
+    newRow.classList.toggle("is-active", hash === "#/" || hash === "");
   }
 
+  /* ---------------------------------------------------------------- search */
+  function openSearch() {
+    searchModal.hidden = false;
+    searchInput.value = "";
+    drawSearch("");
+    window.hydrateIcons(searchModal);
+    setTimeout(() => searchInput.focus(), 20);
+  }
+  function closeSearch() {
+    searchModal.hidden = true;
+  }
+  function drawSearch(query) {
+    const q = query.trim().toLowerCase();
+    const chats = Store.all()
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .filter((chat) => {
+        if (!q) return true;
+        if (chat.title.toLowerCase().includes(q)) return true;
+        return chat.messages.some((message) => String(message.content).toLowerCase().includes(q));
+      })
+      .slice(0, 12);
+
+    if (!chats.length) {
+      searchResults.innerHTML = `<p class="search-empty">${esc(A.search.empty)}</p>`;
+      return;
+    }
+    searchResults.innerHTML = `<p class="search-group">Chats</p>${chats
+      .map((chat) => {
+        const hit = q
+          ? chat.messages.find((message) => String(message.content).toLowerCase().includes(q))
+          : chat.messages[0];
+        const body = hit ? String(hit.content).replace(/\s+/g, " ") : "";
+        const preview = body.length > 84 ? `${body.slice(0, 84)}…` : body;
+        return `<a class="search-result" href="#/c/${chat.id}"><span class="sr-icon" data-icon="new-chat"></span><span class="sr-text"><strong>${esc(
+          chat.title
+        )}</strong><span>${esc(preview)}</span></span></a>`;
+      })
+      .join("")}`;
+    window.hydrateIcons(searchResults);
+  }
+  searchInput.addEventListener("input", () => drawSearch(searchInput.value));
+  document.getElementById("search-scrim").addEventListener("click", closeSearch);
+  searchResults.addEventListener("click", (event) => {
+    if (event.target.closest("a")) closeSearch();
+  });
+  document.getElementById("sb-search").addEventListener("click", openSearch);
+
   /* -------------------------------------------------------------- composer */
-  function composerHTML(kind) {
+  function composerHTML(kind, placeholder) {
     const id = `prompt-${kind}`;
-    const placeholder = kind === "empty" ? C.empty.placeholder : "Ask anything";
+    const think =
+      kind === "scheduled"
+        ? ""
+        : `<button class="think-btn" type="button"><span data-icon="think"></span><span>${esc(A.home.think)}</span></button>`;
     const tail =
-      kind === "empty"
+      kind === "home"
         ? `<button class="composer-btn" type="button" aria-label="Dictate" data-icon="mic"></button>
            <button class="composer-voice" type="button" aria-label="Use voice mode" data-icon="wave"></button>`
         : `<button class="composer-btn" type="button" aria-label="Dictate" data-icon="mic"></button>
-           <button class="send-btn" type="submit" aria-label="Send message" disabled data-icon="arrow-up"></button>`;
-    return `<form class="composer" data-composer="${kind}" autocomplete="off">
+           <button class="send-btn blue" type="submit" aria-label="Send message" data-icon="arrow-up"></button>`;
+    return `<form class="composer${kind === "home" ? " home-composer" : ""}" data-composer="${kind}" autocomplete="off">
       <button class="composer-btn" type="button" aria-label="Add files and more" data-icon="plus"></button>
-      <label class="sr-only" for="${id}">Ask anything</label>
+      <label class="sr-only" for="${id}">${esc(placeholder)}</label>
       <textarea id="${id}" rows="1" placeholder="${esc(placeholder)}"></textarea>
+      ${kind === "scheduled" ? "" : think}
       ${tail}
     </form>`;
   }
@@ -371,7 +469,7 @@
     const textarea = form.querySelector("textarea");
     const send = form.querySelector(".send-btn");
 
-    if (state.draft && kind === "empty") {
+    if (state.draft) {
       textarea.value = state.draft;
       state.draft = null;
       if (send) send.disabled = false;
@@ -397,9 +495,23 @@
       sendMessage(text);
     });
 
+    const voice = form.querySelector(".composer-voice");
+    if (voice) {
+      voice.addEventListener("click", () => {
+        textarea.focus();
+      });
+    }
+    const think = form.querySelector(".think-btn");
+    if (think) {
+      think.addEventListener("click", () => {
+        think.classList.toggle("is-on");
+        textarea.focus();
+      });
+    }
+
     window.hydrateIcons(form);
     autosize(textarea);
-    textarea.focus();
+    if (kind === "home") setTimeout(() => textarea.focus(), 20);
   }
 
   /* ---------------------------------------------------------------- router */
@@ -408,61 +520,88 @@
     state.convId = hash.startsWith("#/c/") ? hash.slice(4) : null;
     document.title = "ChatGPT";
     closePopovers();
+    closeSearch();
+    closeSidebar();
+
+    const settingsMode = hash.startsWith("#/settings");
+    app.classList.toggle("settings-mode", settingsMode);
 
     if (hash.startsWith("#/c/")) {
       renderConversation(hash.slice(4));
-    } else if (hash.startsWith("#/images")) {
-      renderImages();
+    } else if (hash.startsWith("#/gpts")) {
+      const category = hash.split("/")[2] || "gpts";
+      renderExplore(category);
+    } else if (hash.startsWith("#/my-gpts")) {
+      renderMyGpts();
+    } else if (hash.startsWith("#/library")) {
+      renderLibrary();
+    } else if (hash.startsWith("#/scheduled")) {
+      renderScheduled();
     } else if (hash.startsWith("#/plugins")) {
       renderPlugins();
+    } else if (hash.startsWith("#/projects")) {
+      renderProjects();
     } else if (hash.startsWith("#/settings")) {
+      const requested = hash.split("/")[2];
+      if (requested) {
+        const found = A.settings.nav.flatMap((group) => group.items).find((item) => slug(item.label) === requested);
+        if (found) state.settingsSection = found.label;
+      }
       renderSettings();
-    } else if (hash.startsWith("#/search")) {
-      renderSearch();
+    } else if (hash.startsWith("#/images")) {
+      renderImages();
     } else if (hash.startsWith("#/research")) {
       renderResearch();
+    } else if (hash.startsWith("#/search")) {
+      renderHome();
+      openSearch();
+    } else if (hash.startsWith("#/temporary")) {
+      state.temp = true;
+      renderHome(true);
     } else {
       renderHome();
     }
 
     highlightNav(hash);
     renderChatList();
-    closeSidebar();
   }
 
   window.addEventListener("hashchange", route);
 
   /* ------------------------------------------------------------------ views */
-  function renderHome() {
-    view.innerHTML = `<div class="center-view">
-      <div class="center-inner">
-        <h1>${esc(C.empty.heading)}</h1>
-        ${composerHTML("empty")}
-        <div class="suggestions">
-          ${C.empty.suggestions
-            .map((label) => `<button class="chip" type="button" data-suggest="${esc(label)}">${esc(label)}</button>`)
+  function renderHome(showTemp) {
+    view.innerHTML = `<div class="signed-home">
+      <button class="temp-chat" type="button" aria-label="${esc(A.home.temporaryChat)}" data-icon="temp"></button>
+      <div class="signed-center">
+        ${showTemp ? `<div class="temp-note"><span data-icon="temp"></span>Temporary chat — this conversation won’t appear in history.</div>` : ""}
+        <h1>${esc(A.home.greeting)}</h1>
+        ${composerHTML("home", A.home.placeholder)}
+        <div class="quick-list">
+          ${A.home.suggestions
+            .map(
+              (item) =>
+                `<button class="quick" type="button" data-suggest="${esc(item.label)}"><span class="quick-ico" data-icon="${esc(
+                  item.icon
+                )}"></span><span>${esc(item.label)}</span></button>`
+            )
             .join("")}
         </div>
       </div>
     </div>`;
-    bindComposer(view, "empty");
+    window.hydrateIcons(view);
+    bindComposer(view, "home");
     view.querySelectorAll("[data-suggest]").forEach((chip) => {
-      chip.addEventListener("click", () => sendMessage(chip.dataset.suggest));
+      chip.addEventListener("click", () => {
+        const textarea = view.querySelector("textarea");
+        textarea.value = chip.dataset.suggest;
+        autosize(textarea);
+        textarea.focus();
+      });
     });
-  }
-
-  function renderResearch() {
-    view.innerHTML = `<div class="center-view">
-      <div class="center-inner">
-        <h1>${esc(C.research.heading)}</h1>
-        <p class="sub" style="margin-bottom:24px;font-size:14px;line-height:20px;color:var(--muted);text-align:center">${esc(
-          C.research.subtitle
-        )}</p>
-        ${composerHTML("empty")}
-      </div>
-    </div>`;
-    state.draft = C.research.prompt;
-    bindComposer(view, "empty");
+    view.querySelector(".temp-chat").addEventListener("click", () => {
+      state.temp = true;
+      renderHome(true);
+    });
   }
 
   function messageHTML(message) {
@@ -470,13 +609,15 @@
       return `<article class="msg msg-user"><div class="bubble">${esc(message.content)}</div></article>`;
     }
     return `<article class="msg msg-assistant">
-      <span class="msg-mark" data-mark></span>
       <div class="msg-body">
         <div class="prose">${markdown(message.content)}</div>
         <div class="msg-actions"${message.content ? "" : " hidden"}>
-          <button type="button" data-action="copy" aria-label="${esc(C.copy)}" data-icon="copy"></button>
-          <button type="button" data-action="up" aria-label="${esc(C.goodResponse)}" data-icon="thumb-up"></button>
-          <button type="button" data-action="down" aria-label="${esc(C.badResponse)}" data-icon="thumb-down"></button>
+          <button type="button" data-action="copy" aria-label="${esc(A.copy)}" data-icon="copy"></button>
+          <button type="button" data-action="up" aria-label="${esc(A.goodResponse)}" data-icon="thumb-up"></button>
+          <button type="button" data-action="down" aria-label="${esc(A.badResponse)}" data-icon="thumb-down"></button>
+          <button type="button" data-action="speak" aria-label="Read aloud" data-icon="volume"></button>
+          <button type="button" data-action="share" aria-label="Share" data-icon="share"></button>
+          <button type="button" data-action="more" aria-label="More" data-icon="more"></button>
         </div>
       </div>
     </article>`;
@@ -489,194 +630,570 @@
       return;
     }
     document.title = chat.title;
-    view.innerHTML = `<div class="thread-scroll" id="thread-scroll">
+    view.innerHTML = `<div class="chat-view">
+      <header class="chat-top">
+        <button class="chat-title" type="button">${esc(chat.title)}<span data-icon="chevron-down"></span></button>
+        <button class="chat-icon" type="button" aria-label="Share chat" data-icon="share"></button>
+      </header>
+      <div class="thread-scroll" id="thread-scroll">
         <div class="thread" id="thread">${chat.messages.map(messageHTML).join("")}</div>
       </div>
       <div class="composer-dock">
-        ${composerHTML("thread")}
-        <p class="composer-hint">${esc(C.composerHint)}</p>
-      </div>`;
+        <p class="composer-hint">${esc(A.composerHint)}</p>
+        ${composerHTML("thread", A.home.placeholder)}
+      </div>
+    </div>`;
     window.hydrateIcons(view);
     bindComposer(view, "thread");
     bindMessageActions(view);
-    scrollToBottom(true);
+    scrollToBottom();
   }
 
-  function renderImages() {
-    view.innerHTML = `<div class="page"><div class="page-inner">
-      <h1>${esc(C.images.title)}</h1>
-      <p class="sub">${esc(C.images.subtitle)}</p>
-      <div class="empty-state">
-        <p>${esc(C.images.empty)}</p>
-        <button class="btn btn-dark" type="button" id="create-image">${esc(C.images.cta)}</button>
+  function gptCard(item) {
+    return `<button class="gpt-card" type="button">
+      ${item.rank ? `<span class="gpt-rank">${item.rank}</span>` : ""}
+      ${tile(item)}
+      <span class="gpt-copy">
+        <strong>${esc(item.name)}</strong>
+        <span class="gpt-desc">${esc(item.desc)}</span>
+        <span class="gpt-by">By ${esc(item.by)}</span>
+      </span>
+    </button>`;
+  }
+
+  function gptSections(sections, query) {
+    const q = query.trim().toLowerCase();
+    const html = sections
+      .map((section) => {
+        const items = section.items.filter(
+          (item) => !q || item.name.toLowerCase().includes(q) || item.desc.toLowerCase().includes(q) || item.by.toLowerCase().includes(q)
+        );
+        if (!items.length) return "";
+        return `<section class="gpt-section">
+          <div class="gpt-section-head">
+            <h2>${esc(section.title)}</h2>
+            <p>${esc(section.subtitle)}</p>
+          </div>
+          <div class="gpt-grid">${items.map(gptCard).join("")}</div>
+        </section>`;
+      })
+      .join("");
+    return html || `<p class="page-empty">No GPTs match that search.</p>`;
+  }
+
+  function renderExplore(category) {
+    const cat = category && category !== "gpts" ? A.explore[category] : null;
+    const data = cat || A.gpts;
+    const sections = cat
+      ? [{ title: cat.title, subtitle: cat.subtitle, items: cat.items }]
+      : A.gpts.sections;
+
+    view.innerHTML = `<div class="page-scroll gpts-view">
+      <div class="gpts-top">
+        <a href="#/my-gpts" class="quiet-link">${esc(A.gpts.myGpts)}</a>
+        <button class="create-btn" type="button"><span data-icon="plus"></span>${esc(A.gpts.create)}</button>
       </div>
-    </div></div>`;
-    document.getElementById("create-image").addEventListener("click", () => {
-      state.draft = C.images.prompt;
-      window.location.hash = "#/";
+      <div class="gpts-inner">
+        ${
+          cat
+            ? ""
+            : `<aside class="gpts-notice">
+                <span class="notice-mark" data-icon="info"></span>
+                <div><strong>${esc(A.gpts.notice.title)}</strong><p>${esc(A.gpts.notice.body)} <a href="${esc(
+                  window.CONTENT.links.help
+                )}" target="_blank" rel="noopener noreferrer">${esc(A.gpts.notice.link)}</a></p></div>
+                <a class="notice-cta" href="#/plugins">${esc(A.gpts.notice.cta)}</a>
+              </aside>`
+        }
+        <h1>${esc(data.title)}</h1>
+        <p class="page-sub">${esc(data.subtitle)}</p>
+        <div class="search-box gpt-search"><span data-icon="search"></span><input id="gpt-search" type="search" placeholder="${esc(
+          A.gpts.searchPlaceholder
+        )}" /></div>
+        ${
+          cat
+            ? ""
+            : `<div class="gpt-tabs" role="tablist">${A.gpts.categories
+                .map(
+                  (label, index) =>
+                    `<button class="gpt-tab${index === 0 ? " is-active" : ""}" type="button" data-goto="${slug(label)}">${esc(
+                      label
+                    )}</button>`
+                )
+                .join("")}</div>`
+        }
+        <div id="gpt-sections">${gptSections(sections, "")}</div>
+      </div>
+    </div>`;
+
+    window.hydrateIcons(view);
+    const input = document.getElementById("gpt-search");
+    const container = document.getElementById("gpt-sections");
+    input.addEventListener("input", () => {
+      container.innerHTML = gptSections(sections, input.value);
     });
-  }
-
-  function renderPlugins() {
-    view.innerHTML = `<div class="page"><div class="page-inner">
-      <h1>${esc(C.plugins.title)}</h1>
-      <p class="sub">${esc(C.plugins.subtitle)}</p>
-      <div class="search-box">
-        <span data-icon="search"></span>
-        <label class="sr-only" for="plugin-search">${esc(C.plugins.searchPlaceholder)}</label>
-        <input id="plugin-search" type="search" placeholder="${esc(C.plugins.searchPlaceholder)}" />
-      </div>
-      <div class="plugin-grid" id="plugin-grid"></div>
-      <p class="sub" id="plugin-empty" hidden>${esc(C.plugins.empty)}</p>
-    </div></div>`;
-    window.hydrateIcons(view);
-
-    const grid = document.getElementById("plugin-grid");
-    const empty = document.getElementById("plugin-empty");
-    const search = document.getElementById("plugin-search");
-
-    const draw = (query) => {
-      const q = query.trim().toLowerCase();
-      const items = C.plugins.items.filter(
-        (item) => !q || item.name.toLowerCase().includes(q) || item.category.toLowerCase().includes(q)
-      );
-      grid.innerHTML = items
-        .map(
-          (item) => `<div class="plugin-card">
-            <span class="plugin-avatar">${esc(item.name.charAt(0))}</span>
-            <div>
-              <h3>${esc(item.name)}<span class="cat">${esc(item.category)}</span></h3>
-              <p>${esc(item.desc)}</p>
-            </div>
-          </div>`
-        )
-        .join("");
-      empty.hidden = items.length > 0;
-    };
-
-    search.addEventListener("input", () => draw(search.value));
-    draw("");
-  }
-
-  function renderSearch() {
-    view.innerHTML = `<div class="page"><div class="page-inner">
-      <h1>${esc(C.search.title)}</h1>
-      <div class="search-box">
-        <span data-icon="search"></span>
-        <label class="sr-only" for="chat-search">${esc(C.search.placeholder)}</label>
-        <input id="chat-search" type="search" placeholder="${esc(C.search.placeholder)}" />
-      </div>
-      <div id="search-results"></div>
-      <p class="sub" id="search-empty" hidden>${esc(C.search.empty)}</p>
-    </div></div>`;
-    window.hydrateIcons(view);
-
-    const input = document.getElementById("chat-search");
-    const results = document.getElementById("search-results");
-    const empty = document.getElementById("search-empty");
-
-    const draw = (query) => {
-      const q = query.trim().toLowerCase();
-      const chats = Store.all().sort((a, b) => b.updatedAt - a.updatedAt);
-      const found = chats.filter((chat) => {
-        if (!q) return true;
-        if (chat.title.toLowerCase().includes(q)) return true;
-        return chat.messages.some((message) => String(message.content).toLowerCase().includes(q));
+    view.querySelectorAll("[data-goto]").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        view.querySelectorAll("[data-goto]").forEach((other) => other.classList.toggle("is-active", other === tab));
+        const target = [...container.querySelectorAll("section")].find((section) =>
+          slug(section.querySelector("h2")?.textContent || "").includes(tab.dataset.goto)
+        );
+        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
       });
-      results.innerHTML = found
-        .slice(0, 20)
-        .map((chat) => {
-          const hit = chat.messages.find((message) => String(message.content).toLowerCase().includes(q));
-          const body = hit ? String(hit.content).replace(/\s+/g, " ") : "";
-          const preview = body.length > 90 ? `${body.slice(0, 90)}…` : body;
-          return `<a class="result" href="#/c/${chat.id}"><strong>${esc(chat.title)}</strong><span>${esc(preview)}</span></a>`;
-        })
-        .join("");
-      empty.hidden = found.length > 0;
-    };
-
-    input.addEventListener("input", () => draw(input.value));
-    draw("");
-    input.focus();
+    });
+    const create = view.querySelector(".create-btn");
+    if (create) {
+      create.addEventListener("click", () => {
+        state.draft = "Help me create a GPT that ";
+        window.location.hash = "#/";
+      });
+    }
   }
 
-  function renderSettings() {
-    view.innerHTML = `<div class="page"><div class="page-inner">
-      <h1>${esc(C.settings.title)}</h1>
-      <div class="settings">
-        <div class="settings-tabs" role="tablist" aria-label="${esc(C.settings.title)}">
-          ${C.settings.tabs
+  function renderMyGpts() {
+    view.innerHTML = `<div class="page-scroll gpts-view">
+      <div class="gpts-top">
+        <a href="#/gpts" class="quiet-link">${esc(A.myGpts.explore)}</a>
+        <button class="create-btn" type="button" id="create-gpt"><span data-icon="plus"></span>${esc(A.gpts.create)}</button>
+      </div>
+      <div class="gpts-inner">
+        <h1>${esc(A.myGpts.title)}</h1>
+        <p class="page-sub">${esc(A.myGpts.subtitle)}</p>
+        <div class="gpt-tabs" role="tablist">
+          ${A.myGpts.tabs
             .map(
               (label, index) =>
-                `<button type="button" role="tab" aria-selected="${index === state.settingsTab}" data-tab="${index}" class="${
-                  index === state.settingsTab ? "is-active" : ""
+                `<button class="gpt-tab${index === 0 ? " is-active" : ""}" type="button"${
+                  index === 1 ? ' id="create-tab"' : ""
+                }>${esc(label)}</button>`
+            )
+            .join("")}
+        </div>
+        <div class="empty-state my-gpts-empty">
+          <p>${esc(A.myGpts.empty)}</p>
+          <button class="create-btn" type="button" id="create-gpt-2"><span data-icon="plus"></span>${esc(A.myGpts.cta)}</button>
+        </div>
+      </div>
+    </div>`;
+    window.hydrateIcons(view);
+    const create = () => {
+      state.draft = "Help me create a GPT that ";
+      window.location.hash = "#/";
+    };
+    document.getElementById("create-gpt").addEventListener("click", create);
+    document.getElementById("create-gpt-2").addEventListener("click", create);
+    document.getElementById("create-tab").addEventListener("click", create);
+  }
+
+  function renderSkills() {
+    view.innerHTML = `<div class="page-scroll plugins-view">
+      <div class="plugins-top">
+        <div class="plugin-tabs" role="tablist">
+          ${A.plugins.tabs
+            .map(
+              (label, index) =>
+                `<button class="plugin-tab${index === 1 ? " is-active" : ""}" type="button" role="tab" aria-selected="${
+                  index === 1
                 }">${esc(label)}</button>`
             )
             .join("")}
         </div>
-        <div class="settings-panel" id="settings-panel"></div>
+        <div class="plugins-actions">
+          <button class="tool-btn" type="button" aria-label="Skill settings" data-icon="settings"></button>
+          <button class="add-btn" type="button">Add<span data-icon="chevron-down"></span></button>
+        </div>
       </div>
-    </div></div>`;
-
-    const panel = document.getElementById("settings-panel");
-
-    const draw = (index) => {
-      state.settingsTab = index;
-      view.querySelectorAll("[data-tab]").forEach((tab) => {
-        const active = Number(tab.dataset.tab) === index;
-        tab.classList.toggle("is-active", active);
-        tab.setAttribute("aria-selected", String(active));
+      <div class="plugins-inner">
+        <h1>${esc(A.skills.title)}</h1>
+        <p class="page-sub">${esc(A.skills.subtitle)}</p>
+        <div class="search-box plugin-search"><span data-icon="search"></span><input id="skill-search" type="search" placeholder="${esc(
+          A.skills.searchPlaceholder
+        )}" /></div>
+        ${A.skills.sections
+          .map(
+            (section) => `<section class="plugin-section">
+              <button class="plugin-group" type="button">${esc(section.title)}<span data-icon="chevron-right"></span></button>
+              <div class="plugin-grid2">
+                ${section.items
+                  .map(
+                    (item) => `<div class="plugin-row">
+                      ${tile(item, "lg")}
+                      <div class="plugin-copy"><strong>${esc(item.name)}</strong><p>${esc(item.desc)}</p></div>
+                      <button class="plugin-action" type="button" aria-label="${esc(item.name)}" data-icon="${
+                      item.action === "more" ? "more" : "plus"
+                    }"></button>
+                    </div>`
+                  )
+                  .join("")}
+              </div>
+            </section>`
+          )
+          .join("")}
+      </div>
+    </div>`;
+    window.hydrateIcons(view);
+    view.querySelectorAll(".plugin-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        if (tab.textContent.trim() === "Plugins") renderPlugins();
+        else renderSkills();
       });
+    });
+    const search = document.getElementById("skill-search");
+    search.addEventListener("input", () => {
+      const q = search.value.trim().toLowerCase();
+      view.querySelectorAll(".plugin-row").forEach((row) => {
+        row.hidden = Boolean(q) && !row.textContent.toLowerCase().includes(q);
+      });
+    });
+  }
 
-      if (index === 0) {
-        panel.innerHTML = `<h2>${esc(C.settings.general.account)}</h2>
-          <div class="setting-row"><span>${esc(C.settings.general.email)}</span><span class="value">${esc(session.email)}</span></div>
-          <div class="setting-row"><span>${esc(C.settings.general.plan)}</span><span class="value">${esc(
-          C.settings.general.planValue
-        )}</span></div>
-          <div class="setting-row"><span>${esc(C.settings.general.language)}</span><span class="value">${esc(
-          C.settings.general.languageValue
-        )}</span></div>`;
-      } else if (index === 1) {
-        panel.innerHTML = `<h2>${esc(C.settings.data.title)}</h2>
-          <p class="body">${esc(C.settings.data.body)}</p>
-          <button class="danger" type="button" id="delete-all">${esc(C.settings.data.cta)}</button>`;
-        document.getElementById("delete-all").addEventListener("click", () => {
-          panel.innerHTML = `<h2>${esc(C.settings.data.confirm)}</h2>
-            <p class="body">${esc(C.settings.data.confirmBody)}</p>
-            <div class="confirm">
-              <p>${esc(C.settings.data.confirm)}</p>
-              <button class="danger" type="button" id="confirm-delete">${esc(C.settings.data.confirmCta)}</button>
-              <button class="btn btn-outline" type="button" id="cancel-delete">${esc(C.settings.data.cancel)}</button>
-            </div>`;
-          document.getElementById("confirm-delete").addEventListener("click", () => {
-            Store.clear();
-            state.convId = null;
-            renderChatList();
-            window.location.hash = "#/";
-          });
-          document.getElementById("cancel-delete").addEventListener("click", () => draw(1));
-        });
-      } else {
-        panel.innerHTML = `<h2>${esc(C.settings.about.title)}</h2>
-          <p class="body">${esc(C.settings.about.body)}</p>
-          <div class="setting-row"><span>${esc(C.settings.about.version)}</span><span class="value">${esc(
-          C.settings.about.versionValue
-        )}</span></div>`;
-      }
+  const FILE_ICONS = { pdf: "file", globe: "globe", doc: "file", file: "file", blank: "" };
+
+  function renderLibrary() {
+    view.innerHTML = `<div class="page-scroll library-view">
+      <header class="lib-head">
+        <h1>${esc(A.library.title)}</h1>
+        <div class="lib-tools">
+          <button class="tool-btn" type="button" aria-label="List view" data-icon="listw"></button>
+          <button class="tool-btn is-on" type="button" aria-label="Grid view" data-icon="grid"></button>
+          <div class="search-box lib-search"><span data-icon="search"></span><input id="library-search" type="search" placeholder="${esc(
+            A.library.searchPlaceholder
+          )}" /></div>
+          <button class="new-btn" type="button">${esc(A.library.newLabel)}<span data-icon="chevron-down"></span></button>
+          <button class="tool-btn" type="button" aria-label="Filter" data-icon="sliders"></button>
+        </div>
+      </header>
+      <div class="lib-tabs" role="tablist">
+        ${A.library.tabs
+          .map(
+            (label, index) =>
+              `<button class="lib-tab${index === 0 ? " is-active" : ""}" type="button" role="tab" aria-selected="${index === 0}">${esc(
+                label
+              )}</button>`
+          )
+          .join("")}
+      </div>
+      <div class="lib-grid" id="lib-grid"></div>
+    </div>`;
+
+    window.hydrateIcons(view);
+    const grid = document.getElementById("lib-grid");
+    const input = document.getElementById("library-search");
+
+    const draw = (query) => {
+      const q = query.trim().toLowerCase();
+      const files = A.library.files.filter((file) => !q || file.name.toLowerCase().includes(q));
+      grid.innerHTML = files
+        .map((file) => {
+          if (!file.name) return `<div class="lib-card is-blank"></div>`;
+          return `<button class="lib-card" type="button">
+            <span class="lib-card-head"><span class="file-ico ${esc(file.kind)}" data-icon="${FILE_ICONS[file.kind] || "file"}"></span><span class="lib-name">${esc(
+            file.name
+          )}</span></span>
+            <span class="lib-card-body"><span class="file-big ${esc(file.kind)}" data-icon="${FILE_ICONS[file.kind] || "file"}"></span></span>
+          </button>`;
+        })
+        .join("");
+      window.hydrateIcons(grid);
     };
 
-    view.querySelectorAll("[data-tab]").forEach((tab) => {
-      tab.addEventListener("click", () => draw(Number(tab.dataset.tab)));
+    input.addEventListener("input", () => draw(input.value));
+    view.querySelectorAll(".lib-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        view.querySelectorAll(".lib-tab").forEach((other) => {
+          other.classList.toggle("is-active", other === tab);
+          other.setAttribute("aria-selected", String(other === tab));
+        });
+      });
     });
-    draw(state.settingsTab);
+    draw("");
+  }
+
+  function renderScheduled() {
+    view.innerHTML = `<div class="page-scroll">
+      <div class="page-narrow scheduled-view">
+        <div class="sched-head">
+          <div>
+            <h1>${esc(A.scheduled.title)}</h1>
+            <p class="page-sub">${esc(A.scheduled.subtitle)}</p>
+          </div>
+          <button class="filter-pill" type="button"><span data-icon="filter"></span>${esc(A.scheduled.filter)}</button>
+        </div>
+        ${composerHTML("scheduled", A.scheduled.placeholder)}
+        <div class="sched-list">
+          <button class="sched-group" type="button"><span>${esc(A.scheduled.recommended)}</span><span data-icon="chevron-down"></span></button>
+          ${A.scheduled.items
+            .map(
+              (item) => `<div class="sched-row">
+                <span class="sched-emoji">${esc(item.emoji)}</span>
+                <div class="sched-copy"><strong>${esc(item.title)}</strong><p>${esc(item.desc)}</p></div>
+                <button class="sched-add" type="button" aria-label="Add ${esc(item.title)}" data-icon="plus"></button>
+              </div>`
+            )
+            .join("")}
+        </div>
+      </div>
+    </div>`;
+    window.hydrateIcons(view);
+    bindComposer(view, "scheduled");
+    view.querySelectorAll(".sched-row").forEach((row) => {
+      row.addEventListener("click", (event) => {
+        if (event.target.closest(".sched-add")) {
+          row.classList.toggle("is-added");
+          return;
+        }
+        const title = row.querySelector("strong").textContent;
+        state.draft = title;
+        window.location.hash = "#/";
+      });
+    });
+  }
+
+  function renderPlugins() {
+    view.innerHTML = `<div class="page-scroll plugins-view">
+      <div class="plugins-top">
+        <div class="plugin-tabs" role="tablist">
+          ${A.plugins.tabs
+            .map(
+              (label, index) =>
+                `<button class="plugin-tab${index === 0 ? " is-active" : ""}" type="button" role="tab" aria-selected="${
+                  index === 0
+                }">${esc(label)}</button>`
+            )
+            .join("")}
+        </div>
+        <div class="plugins-actions">
+          <button class="tool-btn" type="button" aria-label="Plugin settings" data-icon="settings"></button>
+          <button class="add-btn" type="button">Add<span data-icon="chevron-down"></span></button>
+        </div>
+      </div>
+      <div class="plugins-inner">
+        <h1>${esc(A.plugins.title)}</h1>
+        <p class="page-sub">${esc(A.plugins.subtitle)}</p>
+        <div class="search-box plugin-search"><span data-icon="search"></span><input id="plugin-search" type="search" placeholder="${esc(
+          A.plugins.searchPlaceholder
+        )}" /></div>
+        <section class="plugin-section installed">
+          <button class="plugin-group" type="button">${esc(A.plugins.installedLabel)}<span data-icon="chevron-right"></span></button>
+          <div class="installed-row">
+            ${A.plugins.installed.map((item) => `<span class="app-tile lg tone-${esc(item.tone)}" title="${esc(item.name)}"><span>${esc(item.mark)}</span></span>`).join("")}
+          </div>
+          <button class="public-pill" type="button">${esc(A.plugins.publicLabel)}</button>
+        </section>
+        <div id="plugin-sections">
+          ${A.plugins.sections
+            .map(
+              (section) => `<section class="plugin-section">
+                <button class="plugin-group" type="button">${esc(section.title)}<span data-icon="chevron-right"></span></button>
+                <div class="plugin-grid2">
+                  ${section.items
+                    .map(
+                      (item) => `<div class="plugin-row">
+                        ${tile(item, "lg")}
+                        <div class="plugin-copy"><strong>${esc(item.name)}</strong><p>${esc(item.desc)}</p></div>
+                        ${
+                          item.action === "info"
+                            ? `<button class="plugin-action" type="button" aria-label="Info about ${esc(item.name)}" data-icon="info"></button>`
+                            : item.action === "more"
+                            ? `<button class="plugin-action" type="button" aria-label="More about ${esc(item.name)}" data-icon="more"></button>`
+                            : `<button class="plugin-action" type="button" aria-label="Add ${esc(item.name)}" data-icon="plus"></button>`
+                        }
+                      </div>`
+                    )
+                    .join("")}
+                </div>
+              </section>`
+            )
+            .join("")}
+        </div>
+      </div>
+    </div>`;
+    window.hydrateIcons(view);
+    const search = document.getElementById("plugin-search");
+    search.addEventListener("input", () => {
+      const q = search.value.trim().toLowerCase();
+      view.querySelectorAll(".plugin-row").forEach((row) => {
+        row.hidden = Boolean(q) && !row.textContent.toLowerCase().includes(q);
+      });
+    });
+    view.querySelectorAll(".plugin-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        if (tab.textContent.trim() === "Skills") renderSkills();
+        else renderPlugins();
+      });
+    });
+  }
+
+  function renderProjects() {
+    view.innerHTML = `<div class="page-scroll projects-view">
+      <header class="projects-head">
+        <h1>${esc(A.projects.title)}</h1>
+        <div class="projects-actions">
+          <div class="search-box projects-search"><span data-icon="search"></span><input id="project-search" type="search" placeholder="${esc(
+            A.projects.searchPlaceholder
+          )}" /></div>
+          <button class="create-btn" type="button"><span data-icon="plus"></span>${esc(A.projects.create)}</button>
+        </div>
+      </header>
+      <div class="projects-table">
+        <div class="projects-cols"><span>${esc(A.projects.headers[0])}</span><span>${esc(A.projects.headers[1])}<span data-icon="arrow-down"></span></span></div>
+        <button class="projects-row" type="button"><span data-icon="lock"></span>${esc(A.projects.locked)}</button>
+      </div>
+    </div>`;
+    window.hydrateIcons(view);
+  }
+
+  function settingsNavHTML(query) {
+    const q = (query || "").trim().toLowerCase();
+    return A.settings.nav
+      .map((group) => {
+        const items = group.items.filter((item) => !q || item.label.toLowerCase().includes(q));
+        if (!items.length) return "";
+        return `<div class="settings-group">
+          <p class="settings-label">${esc(group.group)}</p>
+          ${items
+            .map((item) => {
+              const active = item.label === state.settingsSection;
+              if (item.icon === "avatar") {
+                return `<button class="settings-link profile-link${active ? " is-active" : ""}" type="button" data-section="${esc(
+                  item.label
+                )}"><span class="avatar tiny">${esc(A.profile.initials)}</span><span>${esc(item.label)}</span><span data-icon="arrow-up-right"></span></button>`;
+              }
+              return `<button class="settings-link${active ? " is-active" : ""}" type="button" data-section="${esc(
+                item.label
+              )}"><span data-icon="${esc(item.icon)}"></span><span>${esc(item.label)}</span></button>`;
+            })
+            .join("")}
+        </div>`;
+      })
+      .join("");
+  }
+
+  function settingsPaneHTML(label) {
+    if (label === "Account") {
+      const acc = A.settings.account;
+      return `<div class="settings-pane">
+        <a class="mobile-back" href="#/" data-icon="arrow-left">${esc(A.settings.back)}</a>
+        <h1>${esc(acc.title)}</h1>
+        <p class="page-sub">${esc(acc.subtitle)}</p>
+        <section class="settings-details">
+          <h2>${esc(acc.details)}</h2>
+          ${acc.rows
+            .map(
+              (row) => `<div class="settings-row">
+                <div><strong>${esc(row.label)}</strong><p>${esc(row.desc)}</p></div>
+                <div class="settings-value">${esc(row.value)}${
+                row.edit ? `<button class="edit-btn" type="button" aria-label="Edit ${esc(row.label)}" data-icon="pencil"></button>` : ""
+              }</div>
+              </div>`
+            )
+            .join("")}
+        </section>
+        <section class="settings-details gpt-profile">
+          <h2>GPT builder profile</h2>
+          <div class="settings-row">
+            <div><strong class="sr-only">GPT builder profile</strong><p>The display name on your GPT builder profile</p></div>
+            <div class="settings-value">${esc(acc.gptProfile)}<button class="edit-btn" type="button" aria-label="Edit GPT builder profile" data-icon="pencil"></button></div>
+          </div>
+        </section>
+        <section class="settings-details delete-account">
+          <h2 class="sr-only">Delete account</h2>
+          <div class="settings-row">
+            <div><strong>${esc(acc.deleteTitle)}</strong><p>${esc(acc.deleteBody)}</p></div>
+            <button class="delete-btn" type="button">${esc(acc.deleteCta)}</button>
+          </div>
+        </section>
+      </div>`;
+    }
+
+    const pane = A.settings.panes[label] || {
+      subtitle: `Manage ${label.toLowerCase()} for your account.`,
+      rows: [{ label, desc: "This setting is part of the visual replica.", value: "Default" }],
+    };
+    return `<div class="settings-pane">
+      <a class="mobile-back" href="#/" data-icon="arrow-left">${esc(A.settings.back)}</a>
+      <h1>${esc(label)}</h1>
+      <p class="page-sub">${esc(pane.subtitle)}</p>
+      <section class="settings-details">
+        <h2>Details</h2>
+        ${pane.rows
+          .map(
+            (row) => `<div class="settings-row">
+              <div><strong>${esc(row.label)}</strong><p>${esc(row.desc)}</p></div>
+              <div class="settings-value">${esc(row.value)}</div>
+            </div>`
+          )
+          .join("")}
+      </section>
+    </div>`;
+  }
+
+  function renderSettings() {
+    view.innerHTML = `<div class="settings-screen">
+      <aside class="settings-side" aria-label="Settings navigation">
+        <button class="settings-toggle" type="button" aria-label="Collapse settings navigation" data-icon="panel"></button>
+        <a class="back-link" href="#/" data-icon="arrow-left">${esc(A.settings.back)}</a>
+        <div class="search-box settings-search"><span data-icon="search"></span><input id="settings-search" type="search" placeholder="${esc(
+          A.settings.searchPlaceholder
+        )}" /></div>
+        <nav class="settings-nav" id="settings-nav">${settingsNavHTML("")}</nav>
+      </aside>
+      <div class="settings-main" id="settings-main">${settingsPaneHTML(state.settingsSection)}</div>
+    </div>`;
+
+    window.hydrateIcons(view);
+    const navBox = document.getElementById("settings-nav");
+    const main = document.getElementById("settings-main");
+    const search = document.getElementById("settings-search");
+
+    navBox.addEventListener("click", (event) => {
+      const link = event.target.closest("[data-section]");
+      if (!link) return;
+      state.settingsSection = link.dataset.section;
+      navBox.innerHTML = settingsNavHTML(search.value);
+      main.innerHTML = settingsPaneHTML(state.settingsSection);
+      window.hydrateIcons(navBox);
+      window.hydrateIcons(main);
+      history.replaceState(null, "", `#/settings/${slug(state.settingsSection)}`);
+    });
+    search.addEventListener("input", () => {
+      navBox.innerHTML = settingsNavHTML(search.value);
+      window.hydrateIcons(navBox);
+    });
+    view.querySelector(".settings-toggle").addEventListener("click", () => {
+      view.querySelector(".settings-screen").classList.toggle("nav-collapsed");
+    });
+  }
+
+  function renderImages() {
+    view.innerHTML = `<div class="page-scroll"><div class="page-narrow simple-page">
+      <h1>${esc(A.images.title)}</h1>
+      <p class="page-sub">${esc(A.images.subtitle)}</p>
+      <div class="empty-state"><p>${esc(A.images.empty)}</p><button class="create-btn" type="button" id="create-image">${esc(
+      A.images.cta
+    )}</button></div>
+    </div></div>`;
+    document.getElementById("create-image").addEventListener("click", () => {
+      state.draft = A.images.prompt;
+      window.location.hash = "#/";
+    });
+  }
+
+  function renderResearch() {
+    view.innerHTML = `<div class="signed-home"><div class="signed-center">
+      <h1>${esc(A.research.heading)}</h1>
+      <p class="page-sub centered">${esc(A.research.subtitle)}</p>
+      ${composerHTML("home", A.home.placeholder)}
+    </div></div>`;
+    window.hydrateIcons(view);
+    state.draft = A.research.prompt;
+    bindComposer(view, "home");
   }
 
   /* -------------------------------------------------------------- messaging */
-  function scrollToBottom(force) {
+  function scrollToBottom() {
     const box = document.getElementById("thread-scroll");
-    if (!box) return;
-    box.scrollTop = box.scrollHeight;
+    if (box) box.scrollTop = box.scrollHeight;
   }
 
   function bindMessageActions(root) {
@@ -691,11 +1208,13 @@
           try {
             await navigator.clipboard.writeText(text);
             button.classList.add("is-on");
-            button.setAttribute("aria-label", C.copied);
+            button.setAttribute("aria-label", A.copied);
             setTimeout(() => button.classList.remove("is-on"), 1200);
           } catch (err) {
             /* clipboard may be blocked */
           }
+        } else if (action === "speak" || action === "share" || action === "more") {
+          button.classList.toggle("is-on");
         } else {
           const group = button.parentElement;
           group.querySelectorAll("button").forEach((sibling) => {
@@ -790,15 +1309,17 @@
     const thread = document.getElementById("thread");
     const node = document.createElement("article");
     node.className = "msg msg-assistant";
-    node.innerHTML = `<span class="msg-mark" data-mark></span>
-      <div class="msg-body">
-        <div class="prose"></div>
-        <div class="msg-actions" hidden>
-          <button type="button" data-action="copy" aria-label="${esc(C.copy)}" data-icon="copy"></button>
-          <button type="button" data-action="up" aria-label="${esc(C.goodResponse)}" data-icon="thumb-up"></button>
-          <button type="button" data-action="down" aria-label="${esc(C.badResponse)}" data-icon="thumb-down"></button>
-        </div>
-      </div>`;
+    node.innerHTML = `<div class="msg-body">
+      <div class="prose"></div>
+      <div class="msg-actions" hidden>
+        <button type="button" data-action="copy" aria-label="${esc(A.copy)}" data-icon="copy"></button>
+        <button type="button" data-action="up" aria-label="${esc(A.goodResponse)}" data-icon="thumb-up"></button>
+        <button type="button" data-action="down" aria-label="${esc(A.badResponse)}" data-icon="thumb-down"></button>
+        <button type="button" data-action="speak" aria-label="Read aloud" data-icon="volume"></button>
+        <button type="button" data-action="share" aria-label="Share" data-icon="share"></button>
+        <button type="button" data-action="more" aria-label="More" data-icon="more"></button>
+      </div>
+    </div>`;
     thread.append(node);
     window.hydrateIcons(node);
     const prose = node.querySelector(".prose");
@@ -828,7 +1349,7 @@
         node.querySelector(".msg-actions").hidden = false;
         bindMessageActions(node);
       }
-      const notice = aborted ? C.noticeStopped : err.code === "no_key" ? C.noticeNoKey : C.noticeError;
+      const notice = aborted ? A.noticeStopped : err.code === "no_key" ? A.noticeNoKey : A.noticeError;
       prose.innerHTML = answer.trim() ? markdown(answer) : "";
       prose.insertAdjacentHTML("beforeend", `<p class="notice">${inlineMd(notice)}</p>`);
       scrollToBottom();

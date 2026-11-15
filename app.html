@@ -10,9 +10,10 @@
     <link rel="stylesheet" href="css/base.css" />
     <link rel="stylesheet" href="css/home.css" />
     <link rel="stylesheet" href="css/app.css" />
+    <link rel="stylesheet" href="css/pages.css" />
   </head>
   <body>
-    <div class="app">
+    <div class="app" id="app">
       <div class="scrim" id="scrim" aria-hidden="true"></div>
 
       <aside class="sidebar" id="sidebar" aria-label="ChatGPT navigation">
@@ -21,49 +22,73 @@
             <span>ChatGPT</span>
             <span class="chev" data-icon="chevron-down"></span>
           </button>
-          <a class="new-chat" href="#/" aria-label="New chat" data-icon="new-chat"></a>
+          <div class="sb-top-actions">
+            <button class="sb-icon" id="sb-search" type="button" aria-label="Search" data-icon="search"></button>
+            <button class="sb-icon" id="sb-collapse" type="button" aria-label="Hide sidebar" data-icon="panel"></button>
+          </div>
         </div>
 
+        <a class="new-chat-row" id="new-chat-row" href="#/" data-icon="new-chat">New chat</a>
         <nav class="sb-nav" id="app-nav" aria-label="Primary"></nav>
 
-        <div class="chats">
-          <div class="chats-head">
-            <span data-copy="app.chatsLabel"></span>
+        <div class="sb-block">
+          <div class="sb-block-head">
+            <button class="sb-block-title" type="button">Projects</button>
+            <button class="sb-mini" type="button" aria-label="Add new project" data-icon="folder-plus"></button>
+          </div>
+          <p class="sb-empty">No projects</p>
+        </div>
+
+        <div class="sb-block sb-recents">
+          <div class="sb-block-head">
+            <span class="sb-block-title">Recents</span>
+            <button class="sb-mini" type="button" aria-label="Chat sidebar options" data-icon="more"></button>
           </div>
           <div class="chat-list" id="chat-list"></div>
         </div>
 
         <div class="account">
           <button class="account-btn" id="account-btn" type="button" aria-haspopup="true" aria-expanded="false">
-            <span class="avatar" id="account-avatar">S</span>
+            <span class="avatar" id="account-avatar">MO</span>
             <span class="account-text">
               <span class="account-name" id="account-name"></span>
-              <span class="account-plan" data-copy="app.settings.general.planValue"></span>
+              <span class="account-plan" id="account-plan"></span>
             </span>
             <span data-icon="more"></span>
           </button>
           <div class="popover" id="account-popover" hidden>
             <div class="pop-head" id="account-email"></div>
-            <a href="#/settings" data-icon="settings"><span data-copy="app.accountSettings"></span></a>
+            <a href="#/settings/account" data-icon="settings"><span>Settings</span></a>
+            <a href="#/library" data-icon="library"><span>Library</span></a>
             <hr />
-            <button type="button" id="logout" data-icon="close"><span data-copy="app.logout"></span></button>
+            <button type="button" id="logout" data-icon="close"><span>Log out</span></button>
           </div>
         </div>
       </aside>
 
+      <button class="sidebar-reopen" id="sidebar-reopen" type="button" aria-label="Show sidebar" data-icon="panel"></button>
+
       <div class="app-main">
-        <header class="app-header">
-          <button class="icon-btn mobile-only" id="open-sidebar" aria-label="Open sidebar" data-icon="menu"></button>
-          <div class="model">
-            <button class="model-btn" id="model-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
-              <span id="model-label">ChatGPT</span>
-              <span data-icon="chevron-down"></span>
-            </button>
-            <div class="popover" id="model-menu" role="listbox" aria-label="Model" hidden></div>
-          </div>
+        <header class="app-header" id="mobile-header">
+          <button class="icon-btn" id="open-sidebar" aria-label="Open sidebar" data-icon="panel"></button>
+          <span class="mobile-title">ChatGPT</span>
+          <a class="icon-btn" href="#/" aria-label="New chat" data-icon="new-chat"></a>
         </header>
 
         <div class="view" id="view"></div>
+      </div>
+
+      <div class="search-modal" id="search-modal" hidden>
+        <div class="search-scrim" id="search-scrim"></div>
+        <div class="search-panel" role="dialog" aria-modal="true" aria-label="Search chats">
+          <div class="search-field">
+            <span data-icon="search"></span>
+            <label class="sr-only" for="search-input">Search chats</label>
+            <input id="search-input" type="search" placeholder="Search chats" autocomplete="off" />
+            <kbd>esc</kbd>
+          </div>
+          <div class="search-results" id="search-results"></div>
+        </div>
       </div>
     </div>
 

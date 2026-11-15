@@ -22,12 +22,18 @@ node server.mjs
 | --- | --- |
 | `/` | Logged-out home: sidebar, centred composer, suggestion chip, legal footer |
 | `/auth.html`, `/auth.html?mode=signup` | Sign-in / sign-up: social buttons, email step, password step |
-| `/app.html#/` | Logged-in new chat |
+| `/app.html#/` | Signed-in home: personalized greeting, composer, suggestion list, temporary chat |
 | `/app.html#/c/<id>` | Conversation thread with streaming replies |
-| `/app.html#/search` | Chat search |
+| `/app.html#/gpts` | Explore: GPT notice, search, category tabs, featured and trending sections |
+| `/app.html#/gpts/finances`, `maps`, `images`, `canva` | Explore category pages |
+| `/app.html#/my-gpts` | My GPTs, with create entry |
+| `/app.html#/library` | Library: tabs, search, file grid |
+| `/app.html#/scheduled` | Scheduled tasks and recommended prompts |
+| `/app.html#/plugins` | Plugins directory (Skills tab switches to the Skills view) |
+| `/app.html#/projects` | Projects table |
+| `/app.html#/settings/account` | Settings shell with account details and every sidebar section |
+| `/app.html#/search` | Chat search overlay (also `Ctrl/Cmd+K` and the sidebar search icon) |
 | `/app.html#/images` | Image library (empty state) |
-| `/app.html#/plugins` | Plugin directory with filtering |
-| `/app.html#/settings` | Account, data controls (delete chats), about |
 | `/app.html#/research` | Deep research entry |
 
 ## Sign-in
@@ -56,7 +62,7 @@ them. The key never reaches the browser, and `.env` is git-ignored.
 
 ```
 index.html, auth.html, app.html   pages
-css/                              tokens, base, home, auth, app
+css/                              tokens, base, home, auth, app, pages
 js/                               content (all copy), icons (authored SVG), app, auth, pages
 server.mjs                        static server + streaming chat proxy
 assets/mark.svg                   authored brand mark / favicon
