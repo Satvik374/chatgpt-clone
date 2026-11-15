@@ -683,7 +683,7 @@ window.CONTENT = {
     },
     composerHint: "ChatGPT can make mistakes. Check important info.",
     noticeNoKey:
-      "Replies need an API key. Add `OPENAI_API_KEY=...` (and optionally `OPENAI_BASE_URL=...`) to the project `.env` file and restart the server.",
+      "Replies need an API key on the server. Add `OPENAI_API_KEY` under Sites → Secrets (hosted) or in the project `.env` (local), then try again. The provider base URL and model are already configured.",
     noticeError: "Something went wrong while generating a reply. Check the server log for the provider response.",
     noticeStopped: "Stopped.",
     noticeImages:
