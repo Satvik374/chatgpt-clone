@@ -1,4 +1,7 @@
 node_modules/
 .env
+data/
 clones/*/reference/
 .DS_Store
+app.log
+app.pid

@@ -18,8 +18,23 @@
   const back = document.getElementById("auth-back");
   let step = "email";
   let activeEmail = "";
+  let busy = false;
 
-  /* Social buttons — third-party OAuth is not part of this replica. */
+  async function digest(value) {
+    try {
+      if (window.crypto && crypto.subtle) {
+        const buffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+        return Array.from(new Uint8Array(buffer))
+          .map((byte) => byte.toString(16).padStart(2, "0"))
+          .join("");
+      }
+    } catch (err) {
+      /* fall back to a plain marker below */
+    }
+    return `plain:${value}`;
+  }
+
+  /* Social buttons — third-party OAuth is not configured for this local build. */
   C.social.forEach((provider) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -40,7 +55,7 @@
     button.addEventListener("click", () => {
       emailError.hidden = false;
       emailError.textContent =
-        "Third-party sign-in isn't available in this replica. Continue with your email below.";
+        "Third-party sign-in needs an OAuth app and isn’t configured here. Continue with your email below.";
     });
     socialStack.append(button);
   });
@@ -67,7 +82,10 @@
     passwordForm.hidden = false;
     back.hidden = false;
     passwordError.hidden = true;
-    passwordHint.textContent = C.passwordHint;
+    passwordHint.textContent =
+      !isSignup && !window.Session.findAccount(email)
+        ? "No account yet for this email — the password you enter now will create it."
+        : C.passwordHint;
     passwordInput.value = "";
     passwordInput.autocomplete = isSignup ? "new-password" : "current-password";
     alt.hidden = false;
@@ -86,41 +104,98 @@
     passwordInput.focus();
   }
 
-
   emailForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    const value = emailInput.value.trim();
+    const value = emailInput.value.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
       emailError.hidden = false;
       emailError.textContent = C.errors.email;
       emailInput.focus();
       return;
     }
+    const account = window.Session.findAccount(value);
+    if (isSignup && account) {
+      emailError.hidden = false;
+      emailError.textContent = "An account with this email already exists. Log in instead.";
+      emailInput.focus();
+      return;
+    }
     setPasswordStep(value);
   });
 
-  passwordForm.addEventListener("submit", (event) => {
+  passwordForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (busy) return;
     const value = passwordInput.value;
-    if (isSignup && value.length < 10) {
-      passwordError.hidden = false;
-      passwordError.textContent = C.errors.password;
-      passwordInput.focus();
-      return;
-    }
     if (!value) {
       passwordError.hidden = false;
       passwordError.textContent = "Enter a password to continue.";
       passwordInput.focus();
       return;
     }
-    window.Session.set(activeEmail);
-    window.location.href = "app.html";
+    if (isSignup && value.length < 10) {
+      passwordError.hidden = false;
+      passwordError.textContent = C.errors.password;
+      passwordInput.focus();
+      return;
+    }
+
+    const submit = passwordForm.querySelector('button[type="submit"]');
+    busy = true;
+    const label = submit ? submit.textContent : "";
+    if (submit) {
+      submit.disabled = true;
+      submit.textContent = "Checking…";
+    }
+
+    try {
+      const hash = await digest(value);
+      const account = window.Session.findAccount(activeEmail);
+      if (account) {
+        if (account.hash !== hash) {
+          passwordError.hidden = false;
+          passwordError.textContent = "Incorrect password for this email. Try again.";
+          passwordInput.value = "";
+          passwordInput.focus();
+          return;
+        }
+      } else {
+        await window.Session.createAccount(activeEmail, hash);
+      }
+      window.Session.set(activeEmail, { name: account ? account.name : "" });
+      window.location.href = "app.html";
+    } catch (err) {
+      passwordError.hidden = false;
+      passwordError.textContent = "Something went wrong. Try again.";
+    } finally {
+      busy = false;
+      if (submit) {
+        submit.disabled = false;
+        submit.textContent = label;
+      }
+    }
   });
 
   back.addEventListener("click", setEmailStep);
 
+  document.querySelectorAll(".auth-cookie button").forEach((button) => {
+    button.addEventListener("click", () => {
+      try {
+        localStorage.setItem("cg.cookiePrefs", JSON.stringify({ essential: true, at: Date.now() }));
+      } catch (err) {
+        /* storage is optional */
+      }
+      window.alert(
+        "This local replica sets no tracking cookies. It only keeps your session, chats and preferences in this browser’s localStorage."
+      );
+    });
+  });
+
   emailInput.value = session?.email || window.CONFIG.demoEmail || "";
+  if (isSignup) {
+    emailInput.value = "";
+    emailInput.focus();
+  }
   setEmailStep();
 
   window.hydrateIcons(socialStack);

@@ -580,6 +580,87 @@ window.CONTENT = {
             { label: "Shared links", desc: "Manage conversations shared by link", value: "0 links" },
           ],
         },
+        "Security and login": {
+          subtitle: "Keep your local account safe.",
+          rows: [
+            { label: "Password", desc: "The password for this browser account", value: "Set" },
+            { label: "Two-factor authentication", desc: "Ask for a second step at sign-in", value: "Off" },
+            { label: "Stay signed in", desc: "Keep the session after closing the tab", value: "On" },
+          ],
+        },
+        "Parental controls": {
+          subtitle: "Decide what this account can use.",
+          rows: [
+            { label: "Content filter", desc: "Limit responses to safer material", value: "Standard" },
+            { label: "Linked accounts", desc: "Accounts this profile can manage", value: "None" },
+          ],
+        },
+        "Trusted contact": {
+          subtitle: "Choose who can be reached in an emergency.",
+          rows: [{ label: "Trusted contact", desc: "A person to contact if you need help", value: "Not set" }],
+        },
+        Usage: {
+          subtitle: "See how this account is being used.",
+          rows: [
+            { label: "Messages today", desc: "Messages sent in the last 24 hours", value: "0" },
+            { label: "Image generations", desc: "Images created in this workspace", value: "0" },
+          ],
+        },
+        Billing: {
+          subtitle: "Manage your plan and payment details.",
+          rows: [
+            { label: "Plan", desc: "The plan for your current workspace", value: "Go" },
+            { label: "Payment method", desc: "The card used for the subscription", value: "Not added" },
+            { label: "Billing email", desc: "Where invoices are sent", value: "Not set" },
+          ],
+        },
+        "Archived chats": {
+          subtitle: "Chats you have hidden from the sidebar.",
+          rows: [{ label: "Archived chats", desc: "Delete or restore archived conversations", value: "0 chats" }],
+        },
+        "ChatGPT storage": {
+          subtitle: "Where this local build keeps your data.",
+          rows: [
+            { label: "Storage", desc: "Chats, images and preferences live in this browser", value: "localStorage" },
+            { label: "Clear data", desc: "Remove local chats and preferences", value: "Available" },
+          ],
+        },
+        Integrations: {
+          subtitle: "Connect tools this account can use.",
+          rows: [
+            { label: "Connected plugins", desc: "Plugins added from the Plugins page", value: "0" },
+            { label: "Skills", desc: "Focused abilities available in chat", value: "4" },
+          ],
+        },
+        Plugins: {
+          subtitle: "Control how plugins appear in chat.",
+          rows: [
+            { label: "Public plugin list", desc: "Show the plugins on this account publicly", value: "On" },
+            { label: "Auto-approve read tools", desc: "Let plugins read without asking each time", value: "Off" },
+          ],
+        },
+        Passwords: {
+          subtitle: "Passwords and passkeys saved in this browser.",
+          rows: [{ label: "Saved passwords", desc: "Passwords available to the app", value: "0" }],
+        },
+        Pets: {
+          subtitle: "Your companion in the sidebar.",
+          rows: [{ label: "Companion", desc: "Show a pet while you work", value: "Off" }],
+        },
+        Keyboard: {
+          subtitle: "Shortcuts used in this build.",
+          rows: [
+            { label: "Search chats", desc: "Open the chat search overlay", value: "Ctrl/Cmd + K" },
+            { label: "New line", desc: "Add a line without sending", value: "Shift + Enter" },
+          ],
+        },
+        "Code Review": {
+          subtitle: "Defaults for code review requests.",
+          rows: [
+            { label: "Review language", desc: "Preferred language for code replies", value: "JavaScript" },
+            { label: "Explain changes", desc: "Include a short rationale with patches", value: "On" },
+          ],
+        },
       },
     },
 
@@ -602,9 +683,11 @@ window.CONTENT = {
     },
     composerHint: "ChatGPT can make mistakes. Check important info.",
     noticeNoKey:
-      "Replies need an API key. Add `OPENAI_API_KEY=...` to the project `.env` file and restart the server, or keep exploring the interface.",
-    noticeError: "Something went wrong while generating a reply. Try again.",
+      "Replies need an API key. Add `OPENAI_API_KEY=...` (and optionally `OPENAI_BASE_URL=...`) to the project `.env` file and restart the server.",
+    noticeError: "Something went wrong while generating a reply. Check the server log for the provider response.",
     noticeStopped: "Stopped.",
+    noticeImages:
+      "Image generation isn’t available from this provider. Set `OPENAI_IMAGE_MODEL` in `.env` to a supported model and restart the server.",
     deleteChat: "Delete chat",
     accountSettings: "Settings",
     logout: "Log out",
@@ -612,5 +695,70 @@ window.CONTENT = {
     copied: "Copied",
     goodResponse: "Good response",
     badResponse: "Bad response",
+
+    toast: {
+      copied: "Copied to clipboard.",
+      copyFailed: "Couldn’t copy to the clipboard.",
+      linkCopied: "Share link copied to the clipboard.",
+      renamed: "Chat renamed.",
+      deleted: "Chat deleted.",
+      cleared: "All chats cleared.",
+      voiceOn: "Spoken replies are on.",
+      voiceOff: "Spoken replies are off.",
+      dictationUnsupported: "Dictation needs a browser with speech recognition (Chrome or Edge).",
+      micDenied: "Microphone permission was denied.",
+      listening: "Listening…",
+      attachmentAdded: "Attached {name}.",
+      attachmentFailed: "Couldn’t read {name}.",
+      scheduledAdded: "Scheduled task created.",
+      scheduledRemoved: "Scheduled task removed.",
+      pluginAdded: "{name} added.",
+      pluginRemoved: "{name} removed.",
+      skillAdded: "{name} added.",
+      skillRemoved: "{name} removed.",
+      projectCreated: "Project “{name}” created.",
+      gptCreated: "GPT “{name}” created.",
+      favoriteAdded: "Added to favorites.",
+      favoriteRemoved: "Removed from favorites.",
+      downloadStarted: "Download started.",
+      emailLocked: "Your email is tied to this local sign-in and can’t be changed here.",
+      imageUnavailable: "Image generation isn’t configured on the server.",
+      noLockedChats: "You have no locked chats.",
+      addedToProject: "Opened a chat in “{name}”.",
+      settingSaved: "Setting saved.",
+    },
+    prompts: {
+      renameChat: "Rename this chat",
+      chatTitle: "Chat title",
+      newProject: "Name your project",
+      newGptName: "Name your GPT",
+      newGptDescription: "What should this GPT do?",
+      editSetting: "Set {label}",
+    },
+    confirm: {
+      deleteAccount:
+        "Delete this account and all of its local chats, images, projects and settings? This cannot be undone.",
+      clearChats: "Delete every chat in your history? This cannot be undone.",
+    },
+    menu: {
+      rename: "Rename",
+      share: "Share link",
+      delete: "Delete",
+      search: "Search chats",
+      clearAll: "Clear all chats",
+      retry: "Retry",
+      readAloud: "Read aloud",
+      copyLink: "Copy chat link",
+      favorite: "Add to favorites",
+      unfavorite: "Remove from favorites",
+      download: "Download",
+      remove: "Delete",
+      close: "Close",
+      add: "Add",
+      installed: "Installed",
+      browsePlugins: "Browse plugins",
+      browseSkills: "Browse skills",
+      newChat: "New chat",
+    },
   },
 };
