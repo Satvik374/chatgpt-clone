@@ -16,7 +16,8 @@ try {
     if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
       value = value.slice(1, -1);
     }
-    if (!(match[1] in process.env)) process.env[match[1]] = value;
+    /* The project .env is authoritative for this app, so it also overrides inherited shell values. */
+    process.env[match[1]] = value;
   }
 } catch (err) {
   /* no .env file */
